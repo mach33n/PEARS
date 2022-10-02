@@ -25,9 +25,11 @@ class Engine:
 
         ## DEAP Specific
         # default assumes accuracy, latency
+        self.max_gens = 1000
         self.fitness_weights = (1.0,-1.0)
         self.min_size = 3
         self.max_size = 10
+        self.pop_size = 100
 
         ## Using pytorch provided data for now, might want to incorporate custom later. ##
         self.train_data = SST2(split="train")
@@ -53,6 +55,8 @@ class Engine:
     def run(self):
         #self.outputText()
         self.setupDEAPTools()
+        self.search()
+
 
     """ Generate custom classes and add useful
         methods to toolbox """
@@ -61,21 +65,31 @@ class Engine:
         creator.create("Fitness", base.Fitness, weights=self.fitness_weights)
         creator.create("NetInd",
                 list,
-                fitness=creator,
+                fitness=creator.Fitness,
                 age=0,
                 elapsed_time=0,
                 parents=None
         )
+        creator.create("population",
+                list,
+                num_gens=0,
+                evaluated_inds=0,
+                unevaluated_inds=0
+                )
 
         # Add custom content to toolbox
         self.pset = gp.PrimitiveSetTyped("NetIndPSet", [], LM.Model_Output) 
         self.genPSET()
 
-        self.toolbox.register("instNetInd", gp.genNetInd, self.pset, self.min_size, self.max_size)
-        createNetInd = [self.toolbox.instNetInd]
-        self.toolbox.register("individual", tools.initIterate, creator.NetInd, createNetInd)
+        self.toolbox.register("instNetInd", gp.genNetInd, self.pset, self.max_size)
+        self.toolbox.register("individual", tools.initIterate, creator.NetInd, self.toolbox.instNetInd)
+        self.toolbox.register("population", tools.initRepeat, creator.population, self.toolbox.individual, self.pop_size)
 
-        expr = gp.genNetInd(self.pset, 7)
+        self.population = self.toolbox.population()
+        
+        # Sample instantiation of Individual(Debug)
+        #expr = gp.genNetInd(self.pset, 7)
+        expr = self.toolbox.individual()
         print(expr)
         tree = gp.PrimitiveTree(expr)
         individual = creator.NetInd([tree])
@@ -99,6 +113,24 @@ class Engine:
         # Ephemeral Constants are simply ranges of values associated with primitive types like ints
         self.pset.addEphemeralConstant("NumLayers", lambda : int(random.uniform(1,7)), LM.NumLayers)
         self.pset.addEphemeralConstant("Dropout", lambda : random.uniform(0,1), LM.Dropout)
+
+    def search(self):
+        gen = 1
+        while gen < self.max_gens:
+            print("Generation " + str(gen))
+            for ind in self.population:
+                # Do evaluation
+                #print(ind)
+                # Set new fitness values on individual
+                ind.fitness.values = (random.uniform(0,1), random.uniform(0,1))
+            # Do selection
+            # There is variability in selection method but generally NSGA2 isn't bad
+            self.population = tools.selNSGA2(self.population, 20)
+            # Do mate and mutate
+            # Put this off until future
+
+            gen += 1
+
 
     def collate_fn(self, inp):
         return list(map(lambda x: self.transformText(x[0]), inp)), list(map(lambda x: x[1], inp))
