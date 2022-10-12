@@ -22,12 +22,12 @@ class Engine:
         self.max_size = 10
         self.pop_size = 100
 
+        self.setupDEAPTools()
+
 
     """ Primary method for running evolutionary search."""
     def run(self):
-        self.setupDEAPTools()
         self.search()
-
 
     """ Generate custom classes and add useful
         methods to toolbox """
@@ -49,7 +49,7 @@ class Engine:
                 )
 
         # Add custom content to toolbox
-        self.pset = gp.PrimitiveSetTyped("NetIndPSet", [], LM.Model_Output) 
+        self.pset = gp.PrimitiveSetTyped("NetIndPSet", [LM.Model_Input], LM.Model_Output) 
         self.genPSET()
 
         self.toolbox.register("instNetInd", gp.genNetInd, self.pset, self.max_size)
@@ -57,29 +57,22 @@ class Engine:
         self.toolbox.register("population", tools.initRepeat, creator.population, self.toolbox.individual, self.pop_size)
 
         self.population = self.toolbox.population()
-        
-        # Sample instantiation of Individual(Debug)
-        #expr = gp.genNetInd(self.pset, 7)
-        #expr = self.toolbox.individual()
-        #print(expr)
-        #tree = gp.PrimitiveTree(expr)
-        #individual = creator.NetInd([tree])
-        #print()
-        #print(tree)
-        #print()
-        #print(individual)
 
     def genPSET(self):
         # All available primitives
         self.pset.addPrimitive(LM.cNetInd, [LM.LayerList, LM.Optimizer, LM.Loss], LM.Model_Output)
-        self.pset.addPrimitive(LM.LSTMLayer, [LM.EmptyLayerList, int, int, LM.NumLayers, LM.Dropout], LM.LayerList)
-        self.pset.addPrimitive(LM.LSTMLayer, [LM.EmptyLayerList, int, int, LM.NumLayers, LM.Dropout], LM.LayerList_Activation)
-        self.pset.addPrimitive(LM.Input, [], LM.EmptyLayerList)
+        self.pset.addPrimitive(LM.LSTMLayer, [LM.LayerList, int, LM.NumLayers, LM.Dropout], LM.LayerList)
+        self.pset.addPrimitive(LM.LSTMLayer, [LM.LayerList, int, LM.NumLayers, LM.Dropout], LM.LayerList)
 
-        # All available terminals
+        # ALL AVAILABLE TERMINALS #
+        self.pset.addTerminal(LM.Input(), LM.LayerList)
         self.pset.addTerminal(256, int)
-        self.pset.addTerminal(LM.Optimizer.ADAM, LM.Optimizer)
-        self.pset.addTerminal(LM.Loss.MSE, LM.Loss)
+
+        # Applied Optimizers(Add to here if you want more)
+        self.pset.addTerminal(LM.Optimizer.ADAM.value, LM.Optimizer)
+
+        # Applied Loss Functions(Add to here if you want more)
+        self.pset.addTerminal(LM.Loss.MSE.value, LM.Loss)
 
         # Ephemeral Constants are simply ranges of values associated with primitive types like ints
         self.pset.addEphemeralConstant("NumLayers", lambda : int(random.uniform(1,7)), LM.NumLayers)
@@ -99,8 +92,15 @@ class Engine:
             self.population = tools.selNSGA2(self.population, 20)
             # Do mate and mutate
             # Put this off until future
-
             gen += 1
 
-engine = Engine()
-engine.run()
+    def generateSampleIndividual(self):
+        # Sample instantiation of Individual(Debug)
+        expr = gp.genNetInd(self.pset, 7)
+        expr = self.toolbox.individual()
+        tree = gp.PrimitiveTree(expr)
+        execable = gp.compile(tree, pset=self.pset)
+        return tree, execable
+
+#engine = Engine()
+#engine.run()

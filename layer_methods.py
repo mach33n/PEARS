@@ -2,7 +2,6 @@ from enum import Enum
 from torch import nn, optim
 
 # Custom classes used for restricting typed nature of GP
-EmptyLayerList = type("LayerList", (list,), {'content': {}})
 LayerList = type("LayerList", (list,), {'content': {}})
 LayerList_Activation = type("LayerList_Activation", (object,), {'content': {}})
 
@@ -22,17 +21,22 @@ class Optimizer(Enum):
 class Loss(Enum):
     MSE = nn.MSELoss
 
-def cNetInd(layer_list, optimizer, loss_func):
+def cNetInd(layer_list, optimizer, loss):
+    network = nn.Sequential(*layer_list)
+    print(network)
     print("Compiler")
-    pass
+    print(optimizer)
+    print(layer_list)
+    print(loss)
+    return "Done"
 
 def Input():
     return []
 
 """ Regular primitive wrapper for LSTMLayer from Pytorch. Consider
     adding projection specific variant. https://arxiv.org/abs/1402.1128"""
-def LSTMLayer(layer_list, input_size, hidden_size, num_layers, dropout):
-    layer_list.append(nn.LSTM(input_size, hidden_size, num_layers, dropout=dropout))
+def LSTMLayer(layer_list, hidden_size, num_layers, dropout):
+    layer_list.append(nn.LSTM(256, hidden_size, num_layers, dropout=dropout))
+    return layer_list
 
 justTerminals = [int, NumLayers, Dropout, Optimizer, Loss]
-
