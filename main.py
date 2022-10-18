@@ -4,26 +4,35 @@ import torch.nn as nn
 # Temporarily ignoring option to build and just relative importing deap right now
 from deap.deap import base, creator, gp, tools
 
-import data_loader as DL
-import layer_methods as LM
+from data_loader import AmazonDataLoader
+from layer_methods import PSetHub
 import random
+import pickle
+from copy import deepcopy
 
 class Engine:
-    def __init__(self, batch_size=16, max_seq=256):
+    def __init__(self, max_gens=50, metrics=None, batch_size=16, max_seq=256):
         self.toolbox = base.Toolbox()
         self.device = device("cuda" if cuda.is_available() else "cpu")
-        self.dataloader = DL.EngineDataLoader(batch_size=batch_size, max_seq=max_seq, shuffle=True)
+        self.dataloader = AmazonDataLoader()
+        self.psetH = PSetHub()
 
         ## DEAP Specific
         # default assumes accuracy, latency
-        self.max_gens = 1000
-        self.fitness_weights = (1.0,-1.0)
+        self.max_gens = max_gens
+        self.metrics = metrics
+        weights = [1.0]
+        if self.metrics != None:
+            for name in self.metrics:
+                weights.append(self.metrics[name][0])
+        print(tuple(weights))
+        self.fitness_weights = tuple(weights)
         self.min_size = 3
         self.max_size = 10
-        self.pop_size = 100
+        self.init_size = 25
+        self.pareto_size = 20
 
         self.setupDEAPTools()
-
 
     """ Primary method for running evolutionary search."""
     def run(self):
@@ -37,7 +46,7 @@ class Engine:
         creator.create("NetInd",
                 list,
                 fitness=creator.Fitness,
-                age=0,
+                age=1,
                 elapsed_time=0,
                 parents=None
         )
@@ -49,58 +58,72 @@ class Engine:
                 )
 
         # Add custom content to toolbox
-        self.pset = gp.PrimitiveSetTyped("NetIndPSet", [LM.Model_Input], LM.Model_Output) 
-        self.genPSET()
+        self.toolbox.register("individual", tools.initIterate, creator.NetInd, self.generateNetInds)
+        self.toolbox.register("population", tools.initRepeat, creator.population, self.toolbox.individual, self.init_size)
+        self.toolbox.register("refresh_population", tools.initRepeat, creator.population, self.toolbox.individual, self.init_size-self.pareto_size)
 
-        self.toolbox.register("instNetInd", gp.genNetInd, self.pset, self.max_size)
-        self.toolbox.register("individual", tools.initIterate, creator.NetInd, self.toolbox.instNetInd)
-        self.toolbox.register("population", tools.initRepeat, creator.population, self.toolbox.individual, self.pop_size)
-
-        self.population = self.toolbox.population()
-
-    def genPSET(self):
-        # All available primitives
-        self.pset.addPrimitive(LM.cNetInd, [LM.LayerList, LM.Optimizer, LM.Loss], LM.Model_Output)
-        self.pset.addPrimitive(LM.LSTMLayer, [LM.LayerList, int, LM.NumLayers, LM.Dropout], LM.LayerList)
-        self.pset.addPrimitive(LM.LSTMLayer, [LM.LayerList, int, LM.NumLayers, LM.Dropout], LM.LayerList)
-
-        # ALL AVAILABLE TERMINALS #
-        self.pset.addTerminal(LM.Input(), LM.LayerList)
-        self.pset.addTerminal(256, int)
-
-        # Applied Optimizers(Add to here if you want more)
-        self.pset.addTerminal(LM.Optimizer.ADAM.value, LM.Optimizer)
-
-        # Applied Loss Functions(Add to here if you want more)
-        self.pset.addTerminal(LM.Loss.MSE.value, LM.Loss)
-
-        # Ephemeral Constants are simply ranges of values associated with primitive types like ints
-        self.pset.addEphemeralConstant("NumLayers", lambda : int(random.uniform(1,7)), LM.NumLayers)
-        self.pset.addEphemeralConstant("Dropout", lambda : random.uniform(0,1), LM.Dropout)
 
     def search(self):
+        self.population = self.toolbox.population()
+        print(self.population)
+
         gen = 1
         while gen < self.max_gens:
-            print("Generation " + str(gen))
-            for ind in self.population:
+            print("Generation " + str(self.population.num_gens))
+            for idx in range(len(self.population)):
+                ind = deepcopy(self.population[idx])
                 # Do evaluation
-                #print(ind)
+                execable = self.psetH.compile(ind[0], self.psetH.pset())
+                loss, accuracy, metOuts = execable(self.metrics)
+
                 # Set new fitness values on individual
-                ind.fitness.values = (random.uniform(0,1), random.uniform(0,1))
+                vals = [accuracy]
+                for metName in metOuts:
+                    vals.append(metOuts[metName])
+                ind.fitness.values = tuple(vals)
+
+                self.population[idx] = ind
+
             # Do selection
             # There is variability in selection method but generally NSGA2 isn't bad
-            self.population = tools.selNSGA2(self.population, 20)
+            print(tools.selNSGA2(self.population, self.pareto_size))
+            print(len(tools.selNSGA2(self.population, self.pareto_size)))
+
+            pareto_front = deepcopy(tools.selNSGA2(self.population, self.pareto_size))
+            self.population.clear()
+            self.population.extend(pareto_front)
+
+            self.population.extend(self.toolbox.refresh_population())
+            print(len(self.population))
+
+            self.logParetoOptimalInds(self.population, self.population.num_gens, verbose=True)
+            
             # Do mate and mutate
-            # Put this off until future
-            gen += 1
 
-    def generateSampleIndividual(self):
-        # Sample instantiation of Individual(Debug)
-        expr = gp.genNetInd(self.pset, 7)
-        expr = self.toolbox.individual()
-        tree = gp.PrimitiveTree(expr)
-        execable = gp.compile(tree, pset=self.pset)
-        return tree, execable
+            self.population.num_gens += 1
 
+    # Need to generate log file for storing pandas df full of pareto front information 
+    # based on generation recorded
+    def logParetoOptimalInds(self, paretoFront, generation, verbose=False):
+       pass 
+
+    def generateNetInds(self, count=1):
+        # Sample instantiation of Individual
+        pool = []
+        badInits = 0
+        while len(pool) < count:
+            try:
+                tree = self.psetH.genNetInd(self.psetH, 2, maxAttempts=20)
+                pool.append(tree)
+            except Exception as e:
+                badInits += 1
+                if badInits > 2*count:
+                    print("Consider reconfiguring primitive set. The generator is struggling to piece together valid architectures for you. Expect a slight performance slowdown.")
+                    badInits = 0
+                
+        return pool
+
+#metrics = {"empty": (1.0, lambda preds, truths: 1)}
 #engine = Engine()
-#engine.run()
+#engine = Engine(metrics=metrics)
+#engine.search()

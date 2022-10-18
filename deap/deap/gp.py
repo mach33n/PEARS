@@ -461,32 +461,32 @@ class PrimitiveSet(PrimitiveSetTyped):
 ######################################
 # GP Tree compilation functions      #
 ######################################
-def compile(expr, pset):
-    """Compile the expression *expr*.
-
-    :param expr: Expression to compile. It can either be a PrimitiveTree,
-                 a string of Python code or any object that when
-                 converted into string produced a valid Python code
-                 expression.
-    :param pset: Primitive set against which the expression is compile.
-    :returns: a function if the primitive set has 1 or more arguments,
-              or return the results produced by evaluating the tree.
-    """
-    code = str(expr)
-    if len(pset.arguments) > 0:
-        # This section is a stripped version of the lambdify
-        # function of SymPy 0.6.6.
-        args = ",".join(arg for arg in pset.arguments)
-        code = "lambda {args}: {code}".format(args=args, code=code)
-    try:
-        return eval(code, pset.context, {})
-    except MemoryError:
-        _, _, traceback = sys.exc_info()
-        raise MemoryError("DEAP : Error in tree evaluation :"
-                            " Python cannot evaluate a tree higher than 90. "
-                            "To avoid this problem, you should use bloat control on your "
-                            "operators. See the DEAP documentation for more information. "
-                            "DEAP will now abort.").with_traceback(traceback)
+#def compile(expr, pset):
+#    """Compile the expression *expr*.
+#
+#    :param expr: Expression to compile. It can either be a PrimitiveTree,
+#                 a string of Python code or any object that when
+#                 converted into string produced a valid Python code
+#                 expression.
+#    :param pset: Primitive set against which the expression is compile.
+#    :returns: a function if the primitive set has 1 or more arguments,
+#              or return the results produced by evaluating the tree.
+#    """
+#    code = str(expr)
+#    if len(pset.arguments) > 0:
+#        # This section is a stripped version of the lambdify
+#        # function of SymPy 0.6.6.
+#        args = ",".join(arg for arg in pset.arguments)
+#        code = "lambda {args}: {code}".format(args=args, code=code)
+#    try:
+#        return eval(code, pset.context, {})
+#    except MemoryError:
+#        _, _, traceback = sys.exc_info()
+#        raise MemoryError("DEAP : Error in tree evaluation :"
+#                            " Python cannot evaluate a tree higher than 90. "
+#                            "To avoid this problem, you should use bloat control on your "
+#                            "operators. See the DEAP documentation for more information. "
+#                            "DEAP will now abort.").with_traceback(traceback)
 
 
 def compileADF(expr, psets):
@@ -538,25 +538,6 @@ def genFull(pset, min_, max_, type_=None):
 
     return generate(pset, min_, max_, condition, type_)
 
-"""Custom Generator Method for restricting to only valid neural networks. """
-def genNetInd(pset, max_, type_=None):
-    """Generate an expression where each leaf has the same depth
-    between *min* and *max*.
-
-    :param pset: Primitive set from which primitives are selected.
-    :param min_: Minimum height of the produced trees.
-    :param max_: Maximum Height of the produced trees.
-    :param type_: The type that should return the tree when called, when
-                  :obj:`None` (default) the type of :pset: (pset.ret)
-                  is assumed.
-    :returns: A full tree with all leaves at the same depth.
-    """
-
-    def condition(height, depth, type_):
-        """Expression generation stops when the depth is equal to height."""
-        return depth == height or type_ in LM.justTerminals
-
-    return generateNetInd(pset, max_, condition, type_)
 
 def genGrow(pset, min_, max_, type_=None):
     """Generate an expression where each leaf might have a different depth
@@ -607,40 +588,6 @@ def genRamped(pset, min_, max_, type_=None):
                   FutureWarning)
     return genHalfAndHalf(pset, min_, max_, type_)
 
-def generateNetInd(pset, max_, condition, type_=None):
-    """ Custom Generator Function for restricting combinations of NetIndividuals 
-    to structures that are valid and can be evaluated. See below gen function for 
-    arg information. """
-    if type_ is None:
-        type_ = pset.ret
-    expr = []
-    height = max_
-    stack = [(0, type_)]
-    while len(stack) != 0:
-        depth, type_ = stack.pop()
-        if condition(height, depth, type_):
-            try:
-                term = random.choice(pset.terminals[type_])
-            except IndexError:
-                _, _, traceback = sys.exc_info()
-                raise IndexError("The gp.generate function tried to add "
-                                  "a terminal of type '%s', but there is "
-                                  "none availabl." % (type_,)).with_traceback(traceback)
-            if isclass(term):
-                term = term()
-            expr.append(term)
-        else:
-            try:
-                prim = random.choice(pset.primitives[type_])
-            except IndexError:
-                _, _, traceback = sys.exc_info()
-                raise IndexError("The gp.generate function tried to add "
-                                  "a primitive of type '%s', but there is "
-                                  "none available." % (type_,)).with_traceback(traceback)
-            expr.append(prim)
-            for arg in reversed(prim.args):
-                stack.append((depth + 1, arg))
-    return expr
 
 def generate(pset, min_, max_, condition, type_=None):
     """Generate a tree as a list of primitives and terminals in a depth-first
