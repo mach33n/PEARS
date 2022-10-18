@@ -8,13 +8,13 @@ Link to Trello Board: https://trello.com/invite/b/SMybqEcB/6bb8065253c50eb299366
 # Main.py
   - Engine
     - generateNetInds(counts=1)
-     - This method can be utilized for debugging purposes to play around with custom amounts of individuals generated from the psetHub available to the engine. Additionally, this method is used in the search method for generating new individuals for search space.
+      -This method can be utilized for debugging purposes to play around with custom amounts of individuals generated from the psetHub available to the engine. Additionally, this method is used in the search method for generating new individuals for search space.
     - logParetoOptimalInds: TBD
     - run - just calls search for now, ideally will be used to execute pre and post methods specific to search configuration specified
     - search
-     - Utilizes max_gen variable to run some n number of iterations in which individuals are generated, evaluated and selected using NSGA2
+      -Utilizes max_gen variable to run some n number of iterations in which individuals are generated, evaluated and selected using NSGA2
     - setupDEAPTools
-     - Initializes dynamic classes such as NetInd, Population and Fitness. Additionally, registers iterative methods that serve as shorthands for instantiation of populations, individuals, etc.
+      -Initializes dynamic classes such as NetInd, Population and Fitness. Additionally, registers iterative methods that serve as shorthands for instantiation of populations, individuals, etc.
 
 # Data_Loader.py
   - NLPDataset
