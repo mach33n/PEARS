@@ -1,4 +1,3 @@
-from torchtext.datasets import SST2
 from torch.utils.data import Dataset, DataLoader
 import torchtext.transforms as transforms
 from torch.hub import load_state_dict_from_url
@@ -13,22 +12,22 @@ class EngineDataLoader:
         self.eos_idx = 2
 
         ## Using pytorch provided data for now, might want to incorporate custom later. ##
-        self.train_data = SST2(split="train")
-        self.val_data = SST2(split="dev")
-        self.test_data = SST2(split="test")
+       # self.train_data = SST2(split="train")
+       # self.val_data = SST2(split="dev")
+       # self.test_data = SST2(split="test")
 
-        self.train_loader = DataLoader(self.train_data, batch_size=batch_size, shuffle=True, collate_fn=self.collate_fn)
-        self.val_loader = DataLoader(self.val_data, batch_size=batch_size, shuffle=True, collate_fn=self.collate_fn)
-        self.test_loader = DataLoader(self.test_data, batch_size=batch_size, shuffle=True, collate_fn=self.collate_fn)
+       # self.train_loader = DataLoader(self.train_data, batch_size=batch_size, shuffle=True, collate_fn=self.collate_fn)
+       # self.val_loader = DataLoader(self.val_data, batch_size=batch_size, shuffle=True, collate_fn=self.collate_fn)
+       # self.test_loader = DataLoader(self.test_data, batch_size=batch_size, shuffle=True, collate_fn=self.collate_fn)
 
-        ## Shared tokenization transformation. Could evolve and make this unique to individuals in future##
-        xlmr_model_path = r"https://download.pytorch.org/models/text/xlmr.sentencepiece.bpe.model"
-        xlmr_vocab_path = r"https://download.pytorch.org/models/text/xlmr.vocab.pt"
+       # ## Shared tokenization transformation. Could evolve and make this unique to individuals in future##
+       # xlmr_model_path = r"https://download.pytorch.org/models/text/xlmr.sentencepiece.bpe.model"
+       # xlmr_vocab_path = r"https://download.pytorch.org/models/text/xlmr.vocab.pt"
 
-        self.tokenize = transforms.SentencePieceTokenizer(xlmr_model_path)
-        self.vocab_transform = transforms.VocabTransform(load_state_dict_from_url(xlmr_vocab_path))
-        self.truncate = transforms.Truncate(max_seq)
-        self.append_token = lambda idx, begin: transforms.AddToken(token=idx, begin=begin)
+       # self.tokenize = transforms.SentencePieceTokenizer(xlmr_model_path)
+       # self.vocab_transform = transforms.VocabTransform(load_state_dict_from_url(xlmr_vocab_path))
+       # self.truncate = transforms.Truncate(max_seq)
+       # self.append_token = lambda idx, begin: transforms.AddToken(token=idx, begin=begin)
         
 
     def collate_fn(self, inp):
