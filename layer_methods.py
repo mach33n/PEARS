@@ -18,7 +18,7 @@ class PSetHub:
         self.custId = uuid.uuid1()
         _pset = self.buildPSet()
         self.pset = lambda : deepcopy(_pset)
-        self.justTerminals = [HiddenSize, int, NumLayers, Dropout, Optimizer, Criterion, CustMetricsList]
+        self.justTerminals = [HiddenSize, int, NumLayers, Dropout, Optimizer, Criterion, CustMetricsList, NumberHeads]
 
     def buildPSet(self):
         pset = gp.PrimitiveSetTyped("NetIndPSet_" + str(self.custId), [CustMetricsList], Model_Output) 
@@ -27,6 +27,8 @@ class PSetHub:
         pset.addPrimitive(self.cNetInd, [LayerList, Optimizer, Criterion, CustMetricsList], Model_Output)
         pset.addPrimitive(self.LSTMLayer, [LayerList, HiddenSize, NumLayers, Dropout], LayerList)
         pset.addPrimitive(self.GRULayer, [LayerList, HiddenSize, NumLayers, Dropout], LayerList)
+        pset.addPrimitive(self.TransformerEncoderLayer, [LayerList, NumberHeads, Dropout], LayerList)
+        pset.addPrimitive(self.RNNLayer, [LayerList, NumberHeads, Dropout], LayerList)
 
         # ALL AVAILABLE TERMINALS #
         pset.addTerminal(self.Input(), LayerList)
@@ -41,6 +43,7 @@ class PSetHub:
         pset.addEphemeralConstant("GenericInt", lambda : random.randint(1,10), int)
         pset.addEphemeralConstant("GenericFloat", lambda : random.uniform(1,10), float)
         pset.addEphemeralConstant("GenericBool", lambda : random.choice([True, False]), bool)
+        pset.addEphemeralConstant("NumberHeads", lambda: random.randint(1,2), NumberHeads)
 
         return pset
 
@@ -61,6 +64,18 @@ class PSetHub:
             def forward(self,x):
                 return x[0]
         layer_list.append(nn.GRU(random.choice([256]), hidden_size, num_layers, dropout=dropout))
+        layer_list.append(extract_tensor())
+        return layer_list
+
+    def TransformerEncoderLayer(self, layer_list, nhead, dropout):
+        layer_list.append(nn.TransformerEncoderLayer(random.choice([256,25]), nhead, dropout=dropout))
+        return layer_list
+
+    def RNNLayer(self, layer_list, hidden_size, num_layers, dropout):
+        class extract_tensor(nn.Module):
+            def forward(self, x):
+                return x[0]
+        layer_list.append(nn.RNN(random.choice([256]), hidden_size, num_layers, dropout=dropout))
         layer_list.append(extract_tensor())
         return layer_list
 
@@ -104,7 +119,7 @@ class PSetHub:
             custScores = dict.fromkeys(cust_metrics, 0)
         for idx, (tokens, labels) in enumerate(dataloader.train_loader):
             optimizer.zero_grad()
-
+            print(model)
             # Necessary locally not sure why
             tokens = tokens.float() 
             predictions = model(tokens).squeeze(1)
@@ -242,6 +257,7 @@ LayerList = type("LayerList", (list,), {'content': {}})
 LayerList_Activation = type("LayerList_Activation", (object,), {'content': {}})
 
 NumLayers = type("NumLayers", (int,), {'content': {}})
+NumberHeads = type("NumberHeads", (int,), {'content': {}})
 HiddenSize = type("HiddenSize", (int,), {'content': {}})
 Dropout = type("Dropout", (float,), {'content': {}})
 Optimizer = type("Optimizer", (object,), {'content': {}})

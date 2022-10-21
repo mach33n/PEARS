@@ -113,7 +113,7 @@ class Engine:
         badInits = 0
         while len(pool) < count:
             try:
-                tree = self.psetH.genNetInd(self.psetH, 2, maxAttempts=20)
+                tree = self.psetH.genNetInd(self.psetH, 2, maxAttempts=20, debug=True)
                 pool.append(tree)
             except Exception as e:
                 badInits += 1
